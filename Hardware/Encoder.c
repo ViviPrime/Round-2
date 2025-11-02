@@ -1,65 +1,127 @@
 #include "Encoder.h"
+#include "stm32f10x_tim.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_rcc.h"
 
-TIM_HandleTypeDef htim2;  // 编码器定时器
-int32_t encoder_position = 0;
+int32_t encoder1_position = 0;
+int32_t encoder2_position = 0;
 
-void Encoder_Init(void) {
-    TIM_Encoder_InitTypeDef encoder_config = {0};
-    TIM_MasterConfigTypeDef master_config = {0};
-    GPIO_InitTypeDef gpio_init = {0};
+// 电机1编码器初始化 (A6, A7 -> TIM3_CH1, TIM3_CH2)
+void Encoder1_Init(void) {
+    GPIO_InitTypeDef GPIO_InitStructure;
+    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+    TIM_ICInitTypeDef TIM_ICInitStructure;
     
-    // 时钟使能
-    __HAL_RCC_TIM2_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
+    // 使能时钟
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
     
-    // GPIO配置 - PA0, PA1 (TIM2_CH1, TIM2_CH2)
-    gpio_init.Pin = GPIO_PIN_0 | GPIO_PIN_1;
-    gpio_init.Mode = GPIO_MODE_INPUT;
-    gpio_init.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(GPIOA, &gpio_init);
+    // 配置GPIO A6, A7
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
     
-    // 定时器基础配置
-    htim2.Instance = TIM2;
-    htim2.Init.Prescaler = 0;
-    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = 0xFFFF;
-    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    // 配置定时器时基
+    TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
+    TIM_TimeBaseStructure.TIM_Prescaler = 0;
+    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
     
-    // 编码器模式配置
-    encoder_config.EncoderMode = TIM_ENCODERMODE_TI12;
-    encoder_config.IC1Polarity = TIM_ICPOLARITY_RISING;
-    encoder_config.IC2Polarity = TIM_ICPOLARITY_RISING;
-    encoder_config.IC1Selection = TIM_ICSELECTION_DIRECTTI;
-    encoder_config.IC2Selection = TIM_ICSELECTION_DIRECTTI;
-    encoder_config.IC1Prescaler = TIM_ICPSC_DIV1;
-    encoder_config.IC2Prescaler = TIM_ICPSC_DIV1;
-    encoder_config.IC1Filter = 0;
-    encoder_config.IC2Filter = 0;
+    // 配置编码器接口
+    TIM_EncoderInterfaceConfig(TIM3, TIM_EncoderMode_TI12, 
+                              TIM_ICPolarity_Rising, TIM_ICPolarity_Rising);
     
-    HAL_TIM_Encoder_Init(&htim2, &encoder_config);
+    // 配置输入捕获
+    TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
+    TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
+    TIM_ICInitStructure.TIM_ICFilter = 0;
+    TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
+    TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
+    TIM_ICInit(TIM3, &TIM_ICInitStructure);
     
-    // 主模式配置
-    master_config.MasterOutputTrigger = TIM_TRGO_RESET;
-    master_config.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-    HAL_TIMEx_MasterConfigSynchronization(&htim2, &master_config);
+    TIM_ICInitStructure.TIM_Channel = TIM_Channel_2;
+    TIM_ICInit(TIM3, &TIM_ICInitStructure);
     
-    // 启动编码器
-    HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+    // 使能定时器
+    TIM_Cmd(TIM3, ENABLE);
 }
 
-int16_t Encoder_GetSpeed(void) {
+// 电机2编码器初始化 (B6, B7 -> TIM4_CH1, TIM4_CH2)
+void Encoder2_Init(void) {
+    GPIO_InitTypeDef GPIO_InitStructure;
+    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+    TIM_ICInitTypeDef TIM_ICInitStructure;
+    
+    // 使能时钟
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+    
+    // 配置GPIO B6, B7
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    
+    // 配置定时器时基
+    TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
+    TIM_TimeBaseStructure.TIM_Prescaler = 0;
+    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInit(TIM4, &TIM_TimeBaseStructure);
+    
+    // 配置编码器接口
+    TIM_EncoderInterfaceConfig(TIM4, TIM_EncoderMode_TI12, 
+                              TIM_ICPolarity_Rising, TIM_ICPolarity_Rising);
+    
+    // 配置输入捕获
+    TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
+    TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
+    TIM_ICInitStructure.TIM_ICFilter = 0;
+    TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
+    TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
+    TIM_ICInit(TIM4, &TIM_ICInitStructure);
+    
+    TIM_ICInitStructure.TIM_Channel = TIM_Channel_2;
+    TIM_ICInit(TIM4, &TIM_ICInitStructure);
+    
+    // 使能定时器
+    TIM_Cmd(TIM4, ENABLE);
+}
+
+int16_t Encoder1_GetSpeed(void) {
     static int16_t last_count = 0;
-    int16_t current_count = (int16_t)TIM2->CNT;
+    int16_t current_count = TIM_GetCounter(TIM3);
     int16_t speed = current_count - last_count;
     last_count = current_count;
+    encoder1_position += speed;
     return speed;
 }
 
-int32_t Encoder_GetPosition(void) {
-    return encoder_position;
+int16_t Encoder2_GetSpeed(void) {
+    static int16_t last_count = 0;
+    int16_t current_count = TIM_GetCounter(TIM4);
+    int16_t speed = current_count - last_count;
+    last_count = current_count;
+    encoder2_position += speed;
+    return speed;
 }
 
-void Encoder_ClearPosition(void) {
-    encoder_position = 0;
-    __HAL_TIM_SET_COUNTER(&htim2, 0);
+int32_t Encoder1_GetPosition(void) {
+    return encoder1_position;
+}
+
+int32_t Encoder2_GetPosition(void) {
+    return encoder2_position;
+}
+
+void Encoder1_ClearPosition(void) {
+    encoder1_position = 0;
+    TIM_SetCounter(TIM3, 0);
+}
+
+void Encoder2_ClearPosition(void) {
+    encoder2_position = 0;
+    TIM_SetCounter(TIM4, 0);
 }

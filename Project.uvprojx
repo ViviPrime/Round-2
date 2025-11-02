@@ -666,14 +666,14 @@
           <GroupName>Hardware</GroupName>
           <Files>
             <File>
-              <FileName>LED.c</FileName>
+              <FileName>Encoder.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Hardware\LED.c</FilePath>
+              <FilePath>.\Hardware\Encoder.c</FilePath>
             </File>
             <File>
-              <FileName>LED.h</FileName>
+              <FileName>Encoder.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\Hardware\LED.h</FilePath>
+              <FilePath>.\Hardware\Encoder.h</FilePath>
             </File>
             <File>
               <FileName>Key.c</FileName>
@@ -686,6 +686,16 @@
               <FilePath>.\Hardware\Key.h</FilePath>
             </File>
             <File>
+              <FileName>Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>Motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\Motor.h</FilePath>
+            </File>
+            <File>
               <FileName>OLED.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Hardware\OLED.c</FilePath>
@@ -696,9 +706,39 @@
               <FilePath>.\Hardware\OLED.h</FilePath>
             </File>
             <File>
+              <FileName>OLED_Data.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\OLED_Data.c</FilePath>
+            </File>
+            <File>
+              <FileName>OLED_Data.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\OLED_Data.h</FilePath>
+            </File>
+            <File>
               <FileName>OLED_Font.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Hardware\OLED_Font.h</FilePath>
+            </File>
+            <File>
+              <FileName>PWM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\PWM.c</FilePath>
+            </File>
+            <File>
+              <FileName>PWM.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\PWM.h</FilePath>
+            </File>
+            <File>
+              <FileName>Serial.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\Serial.c</FilePath>
+            </File>
+            <File>
+              <FileName>Serial.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\Serial.h</FilePath>
             </File>
           </Files>
         </Group>

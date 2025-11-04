@@ -1,181 +1,125 @@
 #include "stm32f10x.h"
-#include "Encoder.h"
-#include "Motor.h"
-#include "Key.h"
-#include "OLED.h"
-#include "Serial.h"
 #include "Delay.h"
-#include <stdio.h>
+#include "OLED.h"
+#include "Timer.h"
+#include "key.h"
+#include "Motor.h"
+#include "Encoder.h"
+#include "Serial.h"
+#include <stdlib.h>
+#include <string.h>
 
-// PID参数结构体
-typedef struct {
-    float Kp;
-    float Ki;
-    float Kd;
-    float integral;
-    float last_error;
-    float integral_limit;
-} PID_TypeDef;
+// PID控制变量
+float Target = 0, Actual = 0, Out = 0;		
+float Kp = 5.0f, Ki = 1.0f, Kd = 2.0f;  // 默认PID参数
+float Error0 = 0, Error1 = 0, Error2 = 0;
 
-PID_TypeDef speed_pid1, speed_pid2;
-PID_TypeDef position_pid1, position_pid2;
+// 系统状态变量
+uint32_t SystemTick = 0;
+uint8_t UpdateDisplay = 1;
 
-// 全局变量用于数据上传
-int16_t current_speed1 = 0, current_speed2 = 0;
-int32_t current_position1 = 0, current_position2 = 0;
-uint8_t current_mode = 0;
 
-// PID计算函数
-float PID_Calculate(PID_TypeDef *pid, float target, float current) {
-    float error = target - current;
+int main(void)
+{
+    // 系统初始化
+    OLED_Init();          // 只初始化一次
+    Motor_Init();	
+    Encoder1_Init();
+    Encoder2_Init();		
+    Serial_Init();
+    Timer_Init();
     
-    // 积分限幅
-    pid->integral += error;
-    if(pid->integral > pid->integral_limit) pid->integral = pid->integral_limit;
-    if(pid->integral < -pid->integral_limit) pid->integral = -pid->integral_limit;
+    // 显示初始信息
+    OLED_Printf(0, 0, OLED_8X16, "Speed Control");
+    OLED_Update();
     
-    float derivative = error - pid->last_error;
-    float output = pid->Kp * error + pid->Ki * pid->integral + pid->Kd * derivative;
-    pid->last_error = error;
+    Target = 0;  // 初始目标速度为0
     
-    return output;
+    while (1)
+    {
+        // 每100ms更新一次显示，降低CPU占用
+        if(SystemTick % 10 == 0 && UpdateDisplay)
+        {
+            OLED_Printf(0, 16, OLED_8X16, "Kp:%4.2f", Kp);	
+            OLED_Printf(0, 32, OLED_8X16, "Ki:%4.2f", Ki);	
+            OLED_Printf(0, 48, OLED_8X16, "Kd:%4.2f", Kd);	
+            
+            OLED_Printf(64, 16, OLED_8X16, "Tar:%+04.0f", Target);
+            OLED_Printf(64, 32, OLED_8X16, "Act:%+04.0f", Actual);
+            OLED_Printf(64, 48, OLED_8X16, "Out:%+04.0f", Out);	
+            
+            OLED_Update();
+            UpdateDisplay = 0;  // 重置显示标志
+        }
+        
+        // 串口数据发送（可降低频率）
+        if(SystemTick % 20 == 0)
+        {
+            Serial_Printf("%.2f,%.2f,%.2f\r\n", Target, Actual, Out);	
+        }
+        
+        // 处理串口接收
+        if(Serial_RxFlag == 1)
+        {
+            // 验证数据有效性
+            if(strlen(Serial_RxPacket) > 0 && strlen(Serial_RxPacket) < 50)
+            {
+                float newTarget = (float)atof(Serial_RxPacket);
+                // 限制目标速度范围
+                if(newTarget <= 1000 && newTarget >= -1000)
+                {
+                    Target = newTarget;
+                }
+            }
+            Serial_RxFlag = 0;
+            UpdateDisplay = 1;  // 更新显示
+        }
+    }
 }
 
-int main(void) {
-    // 系统初始化
-    Encoder1_Init();
-    Encoder2_Init();
-    Motor_Init();
-    Key_Init();
-    Serial_Init();
-    OLED_Init();
+// 优化后的定时器中断服务函数
+void TIM1_UP_IRQHandler(void)
+{
+    static uint16_t Count = 0;	
     
-    // 初始化10ms定时器中断用于编码器数据读取
-    Encoder_TIM_Init();
-    
-    // 速度PID参数初始化
-    speed_pid1.Kp = 0.8; speed_pid1.Ki = 0.1; speed_pid1.Kd = 0.05;
-    speed_pid2.Kp = 0.8; speed_pid2.Ki = 0.1; speed_pid2.Kd = 0.05;
-    speed_pid1.integral_limit = speed_pid2.integral_limit = 1000;
-    speed_pid1.integral = speed_pid2.integral = 0;
-    speed_pid1.last_error = speed_pid2.last_error = 0;
-    
-    // 位置PID参数初始化
-    position_pid1.Kp = 1.0; position_pid1.Ki = 0.01; position_pid1.Kd = 0.1;
-    position_pid2.Kp = 1.0; position_pid2.Ki = 0.01; position_pid2.Kd = 0.1;
-    position_pid1.integral_limit = position_pid2.integral_limit = 500;
-    position_pid1.integral = position_pid2.integral = 0;
-    position_pid1.last_error = position_pid2.last_error = 0;
-    
-    float target_speed1 = 0, target_speed2 = 0;
-    int32_t target_position2 = 0;
-    uint8_t mode = 0; // 0:速度模式 1:位置随动模式
-    uint8_t last_key = 0;
-    uint32_t display_counter = 0;
-    
-    OLED_Clear();
-    OLED_ShowString(1, 1, "DC Motor Control");
-    OLED_ShowString(2, 1, "Mode:Speed");
-    Serial_Printf("System Initialized\r\n");
-    Serial_Printf("Data Format: S1:speed1,S2:speed2,P1:position1,P2:position2,M:mode\r\n");
-    
-    while (1) {
-        // 检查编码器数据是否准备好（10ms中断更新）
-        if (Encoder_DataReady()) {
-            // 获取最新的编码器数据
-            current_speed1 = Encoder1_GetSpeed();
-            current_speed2 = Encoder2_GetSpeed();
-            current_position1 = Encoder1_GetPosition();
-            current_position2 = Encoder2_GetPosition();
-            current_mode = mode;
-            
-            // 通过串口发送数据到上位机
-            Serial_Printf("S1:%d,S2:%d,P1:%ld,P2:%ld,M:%d\r\n", 
-                         current_speed1, 
-                         current_speed2,
-                         current_position1,
-                         current_position2,
-                         current_mode);
-            
-            // 清除数据标志
-            Encoder_ClearDataFlag();
-        }
+    if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
+    {
+        Count++;
+        SystemTick++;
         
-        float pwm_output1, pwm_output2;
-        
-        if (mode == 0) {
-            // 速度模式
-            pwm_output1 = PID_Calculate(&speed_pid1, target_speed1, current_speed1);
-            pwm_output2 = PID_Calculate(&speed_pid2, target_speed2, current_speed2);
+        // 每10ms执行一次PID控制（100Hz）
+        if (Count >= 1)	
+        {
+            Count = 0;	
             
-            // 显示更新（降低刷新频率避免OLED闪烁）
-            if (display_counter % 10 == 0) {
-                OLED_ShowString(2, 1, "Mode:Speed      ");
-                OLED_ShowString(3, 1, "M1:");
-                OLED_ShowSignedNum(3, 4, current_speed1, 5);
-                OLED_ShowString(4, 1, "M2:");
-                OLED_ShowSignedNum(4, 4, current_speed2, 5);
-            }
-        } else {
-            // 位置随动模式
-            target_position2 = current_position1; // 电机2跟随电机1位置
-            pwm_output1 = 0; // 电机1自由转动
-            pwm_output2 = PID_Calculate(&position_pid2, target_position2, current_position2);
+            // 读取编码器速度并转换类型
+            Actual = (float)Encoder1_GetSpeed();
             
-            // 显示更新
-            if (display_counter % 10 == 0) {
-                OLED_ShowString(2, 1, "Mode:Position   ");
-                OLED_ShowString(3, 1, "Pos1:");
-                OLED_ShowSignedNum(3, 6, current_position1, 6);
-                OLED_ShowString(4, 1, "Pos2:");
-                OLED_ShowSignedNum(4, 6, current_position2, 6);
+            // 更新误差
+            Error2 = Error1;
+            Error1 = Error0;	
+            Error0 = Target - Actual;	
+            
+            // 标准位置式PID算法
+            float P_Term = Kp * Error0;
+            float I_Term = Ki * (Error0 + Error1 + Error2) * 0.001f;  // 乘以时间因子
+            float D_Term = Kd * (Error0 - Error1) * 100.0f;           // 乘以时间因子的倒数
+            
+            Out = P_Term + I_Term + D_Term;
+            
+            // 输出限幅
+            if (Out > 100.0f) Out = 100.0f;	
+            if (Out < -100.0f) Out = -100.0f;
+            
+            Motor1_SetPWM((int16_t)Out);  // 转换为整数输出
+            
+            // 每100ms允许更新显示
+            if(SystemTick % 10 == 0)
+            {
+                UpdateDisplay = 1;
             }
         }
         
-        // 限制PWM输出范围
-        if (pwm_output1 > 100) pwm_output1 = 100;
-        if (pwm_output1 < -100) pwm_output1 = -100;
-        if (pwm_output2 > 100) pwm_output2 = 100;
-        if (pwm_output2 < -100) pwm_output2 = -100;
-        
-        // 电机控制
-        Motor1_SetPWM((int16_t)pwm_output1);
-        Motor2_SetPWM((int16_t)pwm_output2);
-        
-        // 按键处理
-        uint8_t key = Key_GetNum();
-        if (key == 1 && last_key == 0) {
-            mode = !mode;
-            // 切换模式时清除积分项
-            speed_pid1.integral = speed_pid2.integral = 0;
-            position_pid1.integral = position_pid2.integral = 0;
-            OLED_Clear();
-            OLED_ShowString(1, 1, "DC Motor Control");
-            Serial_Printf("Mode changed: %s\r\n", mode ? "Position" : "Speed");
-        }
-        last_key = key;
-        
-        // 串口指令处理
-        if (Serial_GetRxFlag()) {
-            uint8_t data = Serial_GetRxData();
-            if (data == 's' || data == 'S') {
-                target_speed1 = 30;
-                target_speed2 = 30;
-                Serial_Printf("Set speed to 30\r\n");
-            } else if (data == 't' || data == 'T') {
-                target_speed1 = 0;
-                target_speed2 = 0;
-                Serial_Printf("Stop motors\r\n");
-            } else if (data == 'c' || data == 'C') {
-                Encoder1_ClearPosition();
-                Encoder2_ClearPosition();
-                Serial_Printf("Position cleared\r\n");
-            } else if (data == '?') {
-                Serial_Printf("Commands: s-start, t-stop, c-clear, ?-help\r\n");
-            }
-        }
-        
-        display_counter++;
-        Delay_ms(1); // 减少延时，提高响应速度
+        TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
     }
 }

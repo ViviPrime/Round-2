@@ -169,16 +169,6 @@ void Encoder_ClearDataFlag(void) {
     encoder_data_ready = 0;
 }
 
-void Encoder1_ClearPosition(void) {
-    encoder1_position = 0;
-    TIM_SetCounter(TIM3, 0);
-}
-
-void Encoder2_ClearPosition(void) {
-    encoder2_position = 0;
-    TIM_SetCounter(TIM4, 0);
-}
-
 // TIM2中断服务函数（替代TIM6）
 void TIM2_IRQHandler(void) {
     if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {

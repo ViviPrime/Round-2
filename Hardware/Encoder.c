@@ -3,12 +3,6 @@
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
 
-int32_t encoder1_position = 0;
-int32_t encoder2_position = 0;
-int16_t encoder1_speed = 0;
-int16_t encoder2_speed = 0;
-uint8_t encoder_data_ready = 0;
-
 // 电机1编码器初始化 (A6, A7 -> TIM3_CH1, TIM3_CH2)
 void Encoder1_Init(void) {
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -123,56 +117,20 @@ void Encoder_TIM_Init(void) {
     TIM_Cmd(TIM2, ENABLE);
 }
 
-// 读取编码器速度（在中断中调用）
-void Encoder_ReadSpeed(void) {
-    static int16_t last_count1 = 0;
-    static int16_t last_count2 = 0;
-    
-    int16_t current_count1 = TIM_GetCounter(TIM3);
-    int16_t current_count2 = TIM_GetCounter(TIM4);
-    
-    // 计算速度（考虑溢出）
-    encoder1_speed = (int16_t)(current_count1 - last_count1);
-    encoder2_speed = (int16_t)(current_count2 - last_count2);
-    
-    // 更新位置
-    encoder1_position += encoder1_speed;
-    encoder2_position += encoder2_speed;
-    
-    last_count1 = current_count1;
-    last_count2 = current_count2;
-    
-    encoder_data_ready = 1;
+
+int16_t Encoder1_GetSpeed(void)
+{
+	int16_t Temp;
+	Temp = TIM_GetCounter(TIM3);
+	TIM_SetCounter(TIM3, 0);
+	return Temp;
 }
 
-int16_t Encoder1_GetSpeed(void) {
-    return encoder1_speed;
+int16_t Encoder2_GetSpeed(void)
+{
+    int16_t Temp;
+    Temp = TIM_GetCounter(TIM4); 
+    TIM_SetCounter(TIM4, 0); 
+    return Temp;
 }
 
-int16_t Encoder2_GetSpeed(void) {
-    return encoder2_speed;
-}
-
-int32_t Encoder1_GetPosition(void) {
-    return encoder1_position;
-}
-
-int32_t Encoder2_GetPosition(void) {
-    return encoder2_position;
-}
-
-uint8_t Encoder_DataReady(void) {
-    return encoder_data_ready;
-}
-
-void Encoder_ClearDataFlag(void) {
-    encoder_data_ready = 0;
-}
-
-// TIM2中断服务函数（替代TIM6）
-void TIM2_IRQHandler(void) {
-    if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {
-        TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-        Encoder_ReadSpeed();
-    }
-}

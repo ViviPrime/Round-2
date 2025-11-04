@@ -7,17 +7,15 @@
 #include "Encoder.h"
 #include "Serial.h"
 #include <stdlib.h>
-#include <string.h>
 
 // PID控制变量
-float Target = 0, Actual = 0, Out = 0;		
-float Kp = 5.0f, Ki = 1.0f, Kd = 2.0f;  // 默认PID参数
+float Target, Actual, Out;		
+float Kp = 5.0f, Ki = 1.0f, Kd = 3.0f;  // 默认PID参数
 float Error0 = 0, Error1 = 0, Error2 = 0;
 
 // 系统状态变量
-uint32_t SystemTick = 0;
-uint8_t UpdateDisplay = 1;
-
+uint8_t p=0;
+uint8_t KeyNum;
 
 int main(void)
 {
@@ -36,90 +34,89 @@ int main(void)
     Target = 0;  // 初始目标速度为0
     
     while (1)
-    {
-        // 每100ms更新一次显示，降低CPU占用
-        if(SystemTick % 10 == 0 && UpdateDisplay)
-        {
-            OLED_Printf(0, 16, OLED_8X16, "Kp:%4.2f", Kp);	
-            OLED_Printf(0, 32, OLED_8X16, "Ki:%4.2f", Ki);	
-            OLED_Printf(0, 48, OLED_8X16, "Kd:%4.2f", Kd);	
-            
-            OLED_Printf(64, 16, OLED_8X16, "Tar:%+04.0f", Target);
-            OLED_Printf(64, 32, OLED_8X16, "Act:%+04.0f", Actual);
-            OLED_Printf(64, 48, OLED_8X16, "Out:%+04.0f", Out);	
-            
-            OLED_Update();
-            UpdateDisplay = 0;  // 重置显示标志
-        }
-        
-        // 串口数据发送（可降低频率）
-        if(SystemTick % 20 == 0)
-        {
-            Serial_Printf("%.2f,%.2f,%.2f\r\n", Target, Actual, Out);	
-        }
-        
-        // 处理串口接收
-        if(Serial_RxFlag == 1)
-        {
-            // 验证数据有效性
-            if(strlen(Serial_RxPacket) > 0 && strlen(Serial_RxPacket) < 50)
-            {
-                float newTarget = (float)atof(Serial_RxPacket);
-                // 限制目标速度范围
-                if(newTarget <= 1000 && newTarget >= -1000)
-                {
-                    Target = newTarget;
-                }
-            }
-            Serial_RxFlag = 0;
-            UpdateDisplay = 1;  // 更新显示
-        }
-    }
-}
+	{
+		KeyNum = Key_GetNum();
+		if(KeyNum==1)
+		{
+			Target=0;
+			Actual=0;
+			Out = 0;
+			Error0 = 0;
+			Error1 = 0;
+			Error2 = 0;
 
-// 优化后的定时器中断服务函数
+			p=1-p; 
+			OLED_Clear();
+			OLED_Update();
+		}
+		if(p==0)
+		{	
+			Kp=5, Ki=2, Kd=3;
+			OLED_Printf(0, 0, OLED_8X16, "Speed Control");
+			OLED_Printf(0, 16, OLED_8X16, "Kp:%4.2f", Kp);	
+			OLED_Printf(0, 32, OLED_8X16, "Ki:%4.2f", Ki);	
+			OLED_Printf(0, 48, OLED_8X16, "Kd:%4.2f", Kd);	
+			OLED_Printf(64, 16, OLED_8X16, "Tar:%+04.0f", Target);
+			OLED_Printf(64, 32, OLED_8X16, "Act:%+04.0f", Actual);
+			OLED_Printf(64, 48, OLED_8X16, "Out:%+04.0f", Out);	
+			OLED_Update();
+		}
+		else{
+			Kp=3, Ki=0.1 , Kd=0;
+			OLED_Printf(0, 0, OLED_8X16, "Location Control");
+			OLED_Printf(0, 16, OLED_8X16, "Kp:%4.2f", Kp);	
+			OLED_Printf(0, 32, OLED_8X16, "Ki:%4.2f", Ki);	
+			OLED_Printf(0, 48, OLED_8X16, "Kd:%4.2f", Kd);
+			OLED_Printf(64, 16, OLED_8X16, "Tar:%+04.0f", Target);
+			OLED_Printf(64, 32, OLED_8X16, "Act:%+04.0f", Actual);
+			OLED_Printf(64, 48, OLED_8X16, "Out:%+04.0f", Out);	
+			OLED_Update();
+		}
+		Serial_Printf("%f,%f,%f\r\n", Target, Actual, Out);	
+		if(Serial_RxFlag == 1)
+		{
+			Target = (float)atof(Serial_RxPacket);
+			Serial_RxFlag = 0;
+		}
+	}
+}
 void TIM1_UP_IRQHandler(void)
 {
-    static uint16_t Count = 0;	
-    
-    if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
-    {
-        Count++;
-        SystemTick++;
-        
-        // 每10ms执行一次PID控制（100Hz）
-        if (Count >= 1)	
-        {
-            Count = 0;	
-            
-            // 读取编码器速度并转换类型
-            Actual = (float)Encoder1_GetSpeed();
-            
-            // 更新误差
-            Error2 = Error1;
-            Error1 = Error0;	
-            Error0 = Target - Actual;	
-            
-            // 标准位置式PID算法
-            float P_Term = Kp * Error0;
-            float I_Term = Ki * (Error0 + Error1 + Error2) * 0.001f;  // 乘以时间因子
-            float D_Term = Kd * (Error0 - Error1) * 100.0f;           // 乘以时间因子的倒数
-            
-            Out = P_Term + I_Term + D_Term;
-            
-            // 输出限幅
-            if (Out > 100.0f) Out = 100.0f;	
-            if (Out < -100.0f) Out = -100.0f;
-            
-            Motor1_SetPWM((int16_t)Out);  // 转换为整数输出
-            
-            // 每100ms允许更新显示
-            if(SystemTick % 10 == 0)
-            {
-                UpdateDisplay = 1;
-            }
-        }
-        
-        TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
-    }
+
+	static uint16_t Count;	
+	if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
+	{
+		Count ++;
+		Key_Tick();	
+		if (Count >= 10)	
+		{
+			Count = 0;	
+			if(p==0){
+				Actual = Encoder1_GetSpeed();
+				Error2 = Error1;
+				Error1 = Error0;	
+				Error0 = Target - Actual;	
+				Out += Kp * (Error0 - Error1) + Ki * Error0
+					+ Kd * (Error0 - 2 * Error1 + Error2);
+				if (Out > 100) {Out = 100;}	
+				if (Out < -100) {Out = -100;}
+				Motor1_SetPWM(Out);
+			}
+			else
+			{
+				Target+=Encoder1_GetSpeed();
+				Actual+=Encoder2_GetSpeed();
+				Error2 = Error1;
+				Error1 = Error0;	
+				Error0 = Target - Actual;	
+				Out += Kp * (Error0 - Error1) + Ki * Error0
+					+ Kd * (Error0 - 2 * Error1 + Error2);
+				if (Out > 100) {Out = 100;}	
+				if (Out < -100) {Out = -100;}
+				Motor2_SetPWM(Out);
+			}
+		}
+		
+		TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
+	}
 }

@@ -32,7 +32,7 @@
 .\objects\main.o: .\Hardware\OLED.h
 .\objects\main.o: .\Hardware\OLED_Data.h
 .\objects\main.o: .\System\Timer.h
-.\objects\main.o: .\Hardware\key.h
+.\objects\main.o: .\Hardware\Key.h
 .\objects\main.o: .\Hardware\Motor.h
 .\objects\main.o: .\Hardware\Encoder.h
 .\objects\main.o: .\Hardware\Serial.h

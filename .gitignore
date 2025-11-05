@@ -1,0 +1,21 @@
+# 忽略 Keil 工程的配置文件
+Project.uvguix.Admin
+Project.uvguix.PanZi
+Project.uvoptx
+Project.uvprojx
+# Keil中间文件
+*.o
+*.d
+*.axf
+*.hex
+*.bin
+*.lst
+*.map
+*.htm
+*.dep
+# Keil缓存目录
+Objects/
+Listings/
+# 其他临时文件
+*.log
+*.bak

@@ -24,7 +24,7 @@ void PWM_Init(void) {
     
     // 配置定时器时基
     TIM_TimeBaseStructure.TIM_Period = 100 - 1;      // PWM周期
-    TIM_TimeBaseStructure.TIM_Prescaler = 72 - 1;   // 72MHz/72 = 1MHz
+    TIM_TimeBaseStructure.TIM_Prescaler = 36 - 1;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
@@ -43,8 +43,6 @@ void PWM_Init(void) {
     // 使能定时器
     TIM_Cmd(TIM2, ENABLE);
     
-    // 使能PWM输出
-    TIM_CtrlPWMOutputs(TIM2, ENABLE);
 }
 
 void PWM_SetCompare1(uint16_t Compare) {

@@ -33,7 +33,7 @@ void Encoder1_Init(void) {
     // 配置输入捕获
     TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
     TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-    TIM_ICInitStructure.TIM_ICFilter = 0;
+    TIM_ICInitStructure.TIM_ICFilter = 0xF;
     TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
     TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
     TIM_ICInit(TIM3, &TIM_ICInitStructure);
@@ -75,7 +75,7 @@ void Encoder2_Init(void) {
     // 配置输入捕获
     TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
     TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-    TIM_ICInitStructure.TIM_ICFilter = 0;
+    TIM_ICInitStructure.TIM_ICFilter = 0xF;
     TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
     TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
     TIM_ICInit(TIM4, &TIM_ICInitStructure);
@@ -86,37 +86,6 @@ void Encoder2_Init(void) {
     // 使能定时器
     TIM_Cmd(TIM4, ENABLE);
 }
-
-// 定时器中断初始化 (10ms中断) - 使用TIM2替代TIM6
-void Encoder_TIM_Init(void) {
-    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
-    
-    // 使用TIM2替代TIM6（更通用的定时器）
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    
-    // 配置定时器时基
-    // 72MHz / 7200 = 10kHz, 10kHz / 100 = 100Hz (10ms)
-    TIM_TimeBaseStructure.TIM_Period = 100 - 1;
-    TIM_TimeBaseStructure.TIM_Prescaler = 7200 - 1;
-    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-    
-    // 使能定时器更新中断
-    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
-    
-    // 配置NVIC - 使用TIM2的中断通道
-    NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;  // TIM2的中断通道
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-    
-    // 使能定时器
-    TIM_Cmd(TIM2, ENABLE);
-}
-
 
 int16_t Encoder1_GetSpeed(void)
 {

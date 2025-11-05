@@ -25,30 +25,30 @@ void Motor_Init(void) {
     PWM_Init();
 }
 
-void Motor1_SetPWM(int16_t PWM) {
+void Motor1_SetPWM(int8_t PWM) {
     if (PWM >= 0) {
         // 正转
-        GPIO_ResetBits(GPIOB, GPIO_Pin_12);  // AIN1 = 0
-        GPIO_SetBits(GPIOB, GPIO_Pin_13);    // AIN2 = 1
+        GPIO_ResetBits(GPIOB, GPIO_Pin_13);  // AIN1 = 1
+        GPIO_SetBits(GPIOB, GPIO_Pin_12);    // AIN2 = 0
         PWM_SetCompare1(PWM);                // PWMA
     } else {
         // 反转
-        GPIO_SetBits(GPIOB, GPIO_Pin_12);    // AIN1 = 1
-        GPIO_ResetBits(GPIOB, GPIO_Pin_13);  // AIN2 = 0
+        GPIO_SetBits(GPIOB, GPIO_Pin_13);    // AIN1 = 0
+        GPIO_ResetBits(GPIOB, GPIO_Pin_12);  // AIN2 = 1
         PWM_SetCompare1(-PWM);              // PWMA
     }
 }
 
-void Motor2_SetPWM(int16_t PWM) {
+void Motor2_SetPWM(int8_t PWM) {
     if (PWM >= 0) {
         // 正转
-        GPIO_ResetBits(GPIOB, GPIO_Pin_14);  // BIN1 = 0
-        GPIO_SetBits(GPIOB, GPIO_Pin_15);    // BIN2 = 1
+        GPIO_ResetBits(GPIOB, GPIO_Pin_15);  // BIN1 = 1
+        GPIO_SetBits(GPIOB, GPIO_Pin_14);    // BIN2 = 0
         PWM_SetCompare2(PWM);                // PWMB
     } else {
         // 反转
-        GPIO_SetBits(GPIOB, GPIO_Pin_14);    // BIN1 = 1
-        GPIO_ResetBits(GPIOB, GPIO_Pin_15);  // BIN2 = 0
+        GPIO_SetBits(GPIOB, GPIO_Pin_15);    // BIN1 = 0
+        GPIO_ResetBits(GPIOB, GPIO_Pin_14);  // BIN2 = 1
         PWM_SetCompare2(-PWM);              // PWMB
     }
 }

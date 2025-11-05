@@ -16,18 +16,18 @@ void Key_Init(void) {
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 }
 
-uint8_t Key_GetNum(void) {
-    uint8_t KeyNum = 0;
-    
-    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 0) {
-        Delay_ms(20);
-        while (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 0);
-        Delay_ms(20);
-        KeyNum = 1;
-    }
-    
-    return KeyNum;
+uint8_t Key_GetNum(void)
+{
+	uint8_t Temp;
+	if (Key_Num)
+	{
+		Temp = Key_Num;
+		Key_Num = 0;
+		return Temp;
+	}
+	return 0;
 }
+
 uint8_t Key_GetState(void)
 {
 	if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 0)
@@ -39,21 +39,29 @@ uint8_t Key_GetState(void)
 
 void Key_Tick(void)
 {
-	static uint8_t Count;
-	static uint8_t CurrState, PrevState;
-	
-	Count ++;
-	if (Count >= 20)
-	{
-		Count = 0;
-		
-		PrevState = CurrState;
-		CurrState = Key_GetState();
-		
-		if (CurrState == 0 && PrevState != 0)
-		{
-			Key_Num = PrevState;
-
-		}
-	}
+    static uint8_t Count;
+    static uint8_t CurrState, PrevState;
+    static uint8_t KeyPressed = 0;
+    
+    Count++;
+    if (Count >= 5)  // 50ms检测一次
+    {
+        Count = 0;
+        
+        PrevState = CurrState;
+        CurrState = Key_GetState();
+        
+        // 按键按下边沿检测
+        if (CurrState == 1 && PrevState == 0 && !KeyPressed)
+        {
+            Key_Num = 1;
+            KeyPressed = 1;
+        }
+        
+        // 按键释放检测
+        if (CurrState == 0 && PrevState == 1)
+        {
+            KeyPressed = 0;
+        }
+    }
 }

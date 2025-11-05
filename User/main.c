@@ -2,7 +2,7 @@
 #include "Delay.h"
 #include "OLED.h"
 #include "Timer.h"
-#include "key.h"
+#include "Key.h"
 #include "Motor.h"
 #include "Encoder.h"
 #include "Serial.h"
@@ -10,12 +10,19 @@
 
 // PID控制变量
 float Target, Actual, Out;		
-float Kp = 5.0f, Ki = 1.0f, Kd = 3.0f;  // 默认PID参数
+float Kp, Ki, Kd;  // PID参数
 float Error0 = 0, Error1 = 0, Error2 = 0;
 
 // 系统状态变量
 uint8_t p=0;
 uint8_t KeyNum;
+
+static uint32_t tickCount = 0;
+
+uint32_t GetTickCount(void)
+{
+    return tickCount;
+}
 
 int main(void)
 {
@@ -32,22 +39,32 @@ int main(void)
     OLED_Update();
     
     Target = 0;  // 初始目标速度为0
-    
+    Kp=5, Ki=1, Kd=3;
+	
     while (1)
 	{
 		KeyNum = Key_GetNum();
 		if(KeyNum==1)
 		{
-			Target=0;
-			Actual=0;
-			Out = 0;
-			Error0 = 0;
-			Error1 = 0;
-			Error2 = 0;
+			static uint32_t lastKeyTime = 0;  // 新增：记录上次按键时间
+            uint32_t currentTime = GetTickCount();
+            
+            // 防抖处理：30ms内只响应一次按键
+            if(currentTime - lastKeyTime > 30)
+            {
+                Target=0;
+			    Actual=0;
+			    Out = 0;
+			    Error0 = 0;
+			    Error1 = 0;
+			    Error2 = 0;
 
-			p=1-p; 
-			OLED_Clear();
-			OLED_Update();
+			    p=1-p; 
+			    OLED_Clear();
+			    OLED_Update();
+                lastKeyTime = currentTime;
+            }
+			
 		}
 		if(p==0)
 		{	
@@ -82,10 +99,11 @@ int main(void)
 }
 void TIM1_UP_IRQHandler(void)
 {
-
+    
 	static uint16_t Count;	
 	if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
 	{
+		tickCount++;
 		Count ++;
 		Key_Tick();	
 		if (Count >= 10)	
@@ -120,3 +138,5 @@ void TIM1_UP_IRQHandler(void)
 		TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
 	}
 }
+
+

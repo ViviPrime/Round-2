@@ -7,5 +7,9 @@ void Encoder1_Init(void);
 void Encoder2_Init(void);
 int16_t Encoder1_GetSpeed(void);
 int16_t Encoder2_GetSpeed(void);
+int32_t Encoder1_GetPosition(void);
+int32_t Encoder2_GetPosition(void);
+void Encoder1_ClearPosition(void);
+void Encoder2_ClearPosition(void);
 
 #endif

@@ -33,7 +33,7 @@ int main(void)
     Encoder2_Init();		
     Serial_Init();
     Timer_Init();
-    
+    Key_Init();
     // 显示初始信息
     OLED_Printf(0, 0, OLED_8X16, "Speed Control");
     OLED_Update();
@@ -60,6 +60,11 @@ int main(void)
 			    Error2 = 0;
 
 			    p=1-p; 
+				if(p == 1) {  // 切换到模式2时
+                   Encoder1_ClearPosition();
+                   Encoder2_ClearPosition();
+                }
+				
 			    OLED_Clear();
 			    OLED_Update();
                 lastKeyTime = currentTime;
@@ -97,46 +102,76 @@ int main(void)
 		}
 	}
 }
+
 void TIM1_UP_IRQHandler(void)
 {
-    
-	static uint16_t Count;	
-	if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
-	{
-		tickCount++;
-		Count ++;
-		Key_Tick();	
-		if (Count >= 10)	
-		{
-			Count = 0;	
-			if(p==0){
-				Actual = Encoder1_GetSpeed();
-				Error2 = Error1;
-				Error1 = Error0;	
-				Error0 = Target - Actual;	
-				Out += Kp * (Error0 - Error1) + Ki * Error0
-					+ Kd * (Error0 - 2 * Error1 + Error2);
-				if (Out > 100) {Out = 100;}	
-				if (Out < -100) {Out = -100;}
-				Motor1_SetPWM(Out);
-			}
-			else
-			{
-				Target+=Encoder1_GetSpeed();
-				Actual+=Encoder2_GetSpeed();
-				Error2 = Error1;
-				Error1 = Error0;	
-				Error0 = Target - Actual;	
-				Out += Kp * (Error0 - Error1) + Ki * Error0
-					+ Kd * (Error0 - 2 * Error1 + Error2);
-				if (Out > 100) {Out = 100;}	
-				if (Out < -100) {Out = -100;}
-				Motor2_SetPWM(Out);
-			}
-		}
-		
-		TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
-	}
+    static uint16_t Count;	
+    if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
+    {
+        tickCount++;
+        Count++;	
+        Key_Tick();	
+        
+        if (Count >= 10)	
+        {
+            Count = 0;	
+            
+            if(p == 0){  // 模式1：速度控制
+                // 电机1速度PID控制
+                Actual = Encoder1_GetSpeed();
+                Error2 = Error1;
+                Error1 = Error0;	
+                Error0 = Target - Actual;	
+                Out += Kp * (Error0 - Error1) + Ki * Error0 + Kd * (Error0 - 2 * Error1 + Error2);
+                if (Out > 100) Out = 100;	
+                if (Out < -100) Out = -100;
+                Motor1_SetPWM(Out);
+                Motor2_SetPWM(0);  // 电机2停止
+            }
+            else{  // 模式2：位置跟随控制
+                static int32_t LastPosition1 = 0;
+                static int32_t BasePosition2 = 0;
+                static uint8_t FirstTime = 1;
+                
+                // 第一次进入模式2时初始化
+                if (FirstTime) {
+                    LastPosition1 = Encoder1_GetPosition();
+                    BasePosition2 = Encoder2_GetPosition();
+                    FirstTime = 0;
+                    Error0 = Error1 = Error2 = 0;  // 重置PID误差
+                    Out = 0;  // 重置输出
+                }
+                
+                // 获取当前位置
+                int32_t CurrentPosition1 = Encoder1_GetPosition();
+                int32_t CurrentPosition2 = Encoder2_GetPosition();
+                
+                // 计算电机1的位置变化量
+                int32_t DeltaPosition1 = CurrentPosition1 - LastPosition1;
+                LastPosition1 = CurrentPosition1;
+                
+                // 设置电机2的目标位置 = 基础位置 + 电机1的位移
+                int32_t TargetPosition2 = BasePosition2 + DeltaPosition1;
+                
+                // 电机2位置PID控制
+                int32_t PositionError = TargetPosition2 - CurrentPosition2;
+                
+                Error2 = Error1;
+                Error1 = Error0;	
+                Error0 = (float)PositionError;  // 转换为float进行PID计算
+                
+                Out += Kp * (Error0 - Error1) + Ki * Error0 + Kd * (Error0 - 2 * Error1 + Error2);
+                
+                if (Out > 100) Out = 100;	
+                if (Out < -100) Out = -100;
+                
+                Motor2_SetPWM(Out);  // 控制电机2跟随
+                Motor1_SetPWM(0);   // 电机1自由转动（手动控制）
+            }
+        }
+        
+        TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
+    }
 }
 
 

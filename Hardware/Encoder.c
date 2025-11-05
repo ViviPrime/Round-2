@@ -87,19 +87,45 @@ void Encoder2_Init(void) {
     TIM_Cmd(TIM4, ENABLE);
 }
 
+// 全局变量记录位置
+static int32_t Encoder1_Position = 0;
+static int32_t Encoder2_Position = 0;
+
+int32_t Encoder1_GetPosition(void)
+{
+    return Encoder1_Position;
+}
+
+int32_t Encoder2_GetPosition(void)
+{
+    return Encoder2_Position;
+}
+
+void Encoder1_ClearPosition(void)
+{
+    Encoder1_Position = 0;
+}
+
+void Encoder2_ClearPosition(void)
+{
+	Encoder2_Position = 0;
+}
+	
+// 修改获取速度函数，同时更新位置
 int16_t Encoder1_GetSpeed(void)
 {
-	int16_t Temp;
-	Temp = TIM_GetCounter(TIM3);
-	TIM_SetCounter(TIM3, 0);
-	return Temp;
+    int16_t Temp;
+    Temp = TIM_GetCounter(TIM3);
+    TIM_SetCounter(TIM3, 0);
+    Encoder1_Position += Temp;  // 累加位置
+    return Temp;
 }
 
 int16_t Encoder2_GetSpeed(void)
 {
     int16_t Temp;
-    Temp = TIM_GetCounter(TIM4); 
-    TIM_SetCounter(TIM4, 0); 
+    Temp = TIM_GetCounter(TIM4);
+    TIM_SetCounter(TIM4, 0);
+    Encoder2_Position += Temp;  // 累加位置
     return Temp;
 }
-

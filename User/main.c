@@ -132,12 +132,14 @@ void TIM1_UP_IRQHandler(void)
                 static int32_t LastPosition1 = 0;
                 static int32_t BasePosition2 = 0;
                 static uint8_t FirstTime = 1;
+				static int32_t TotalDisplacement1 = 0; 
                 
                 // 第一次进入模式2时初始化
                 if (FirstTime) {
                     LastPosition1 = Encoder1_GetPosition();
                     BasePosition2 = Encoder2_GetPosition();
                     FirstTime = 0;
+					TotalDisplacement1 = 0;
                     Error0 = Error1 = Error2 = 0;  // 重置PID误差
                     Out = 0;  // 重置输出
                 }
@@ -147,11 +149,11 @@ void TIM1_UP_IRQHandler(void)
                 int32_t CurrentPosition2 = Encoder2_GetPosition();
                 
                 // 计算电机1的位置变化量
-                int32_t DeltaPosition1 = CurrentPosition1 - LastPosition1;
+                TotalDisplacement1 += (CurrentPosition1 - LastPosition1);
                 LastPosition1 = CurrentPosition1;
                 
                 // 设置电机2的目标位置 = 基础位置 + 电机1的位移
-                int32_t TargetPosition2 = BasePosition2 + DeltaPosition1;
+                int32_t TargetPosition2 = BasePosition2 + TotalDisplacement1;
                 
                 // 电机2位置PID控制
                 int32_t PositionError = TargetPosition2 - CurrentPosition2;

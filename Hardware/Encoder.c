@@ -111,14 +111,9 @@ void Encoder2_ClearPosition(void)
 	Encoder2_Position = 0;
 }
 	
-// 修改获取速度函数，同时更新位置
 int16_t Encoder1_GetSpeed(void)
 {
-    int16_t Temp;
-    Temp = TIM_GetCounter(TIM3);
-    TIM_SetCounter(TIM3, 0);
-    Encoder1_Position += Temp;  // 累加位置
-    return Temp;
+    return (int16_t)TIM_GetCounter(TIM3); // 只返回速度，不修改位置
 }
 
 int16_t Encoder2_GetSpeed(void)
